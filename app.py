@@ -1,183 +1,106 @@
 from flask import Flask, request
-from flask_restful import Resource, Api, reqparse
-import mysql.connector
 
-DB_HOST = 'localhost'
-DB_USER = 'root'
-DB_PASSWORD = 'June741+'
-DB_NAME = 'projectPrism'
+from srvc.loggin import signUp, logIn, logout, deleteUser, updateUser, readManager
+from srvc.projects import createProject, asignProjectToManager, updateProject, deleteProject, displayProjects, \
+    display_single_project
+from srvc.resource import addResource, deleteResource, updateResource, showResources, asignResourceToTask, \
+    show_single_resource
+from srvc.tasks import createTask, deleteTask, updateTask, showTasks, show_single_task
 
 app = Flask(__name__)
-api = Api(app)
 
-def create_db_connection():
-    return mysql.connector.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME
-    )
 
-def close_db_connection(connection):
-    connection.close()
+@app.route('/user/signup')
+def dosignUp(): return signUp(request.get_json())
 
-class PortfolioManagerResource(Resource):
-    def get(self, id=None):
-        connection = create_db_connection()
-        cursor = connection.cursor()
 
-        if id is None:
-            query = "SELECT * FROM portfolio_managers"
-            cursor.execute(query)
-            portfolio_managers = cursor.fetchall()
-            return jsonify(portfolio_managers)
-        else:
-            query = "SELECT * FROM portfolio_managers WHERE Id = %s"
-            cursor.execute(query, (id,))
-            portfolio_manager = cursor.fetchone()
-            if portfolio_manager:
-                return jsonify(portfolio_manager)
-            else:
-                return {"message": "Portfolio Manager not found"}, 404
+@app.route('/user/login')
+def doLogIn(): return logIn(request.get_json())
 
-        close_db_connection(connection)
 
-    def post(self):
-        data = request.get_json()
-        parser = reqparse.RequestParser()
-        parser.add_argument('Name', type=str, required=True)
-        parser.add_argument('Status', type=str, required=True)
-        parser.add_argument('Role', type=str, required=True)
-        parser.add_argument('Bio', type=str, required=True)
-        parser.add_argument('Start Date', type=str, required=True)
-        args = parser.parse_args()
+@app.route('/user/logout/<email>')
+def doLogOut(email): return logout(email)
 
-        connection = create_db_connection()
-        cursor = connection.cursor()
 
-        query = "INSERT INTO portfolio_managers (Name, Status, Role, Bio, StartDate) VALUES (%s, %s, %s, %s, %s)"
-        values = (args['Name'], args['Status'], args['Role'], args['Bio'], args['Start Date'])
-        cursor.execute(query, values)
-        connection.commit()
+@app.route('/user/delete/<email>')
+def delete_user_route(email): return deleteUser(email)
 
-        close_db_connection(connection)
 
-        return {"message": "Portfolio Manager created successfully"}, 201
+@app.route('/user/update/<email>')
+def update_user_route(email): return updateUser(email, request.get_json())
 
-    def put(self, id):
-        data = request.get_json()
-        parser = reqparse.RequestParser()
-        parser.add_argument('Name', type=str, required=True)
-        parser.add_argument('Status', type=str, required=True)
-        parser.add_argument('Role', type=str, required=True)
-        parser.add_argument('Bio', type=str, required=True)
-        parser.add_argument('Start Date', type=str, required=True)
-        args = parser.parse_args()
 
-        connection = create_db_connection()
-        cursor = connection.cursor()
+@app.route('/user/managers/<email>')
+def show_managers(email): return readManager(email)
 
-        query = "UPDATE portfolio_managers SET Name = %s, Status = %s, Role = %s, Bio = %s, StartDate = %s WHERE Id = %s"
-        values = (args['Name'], args['Status'], args['Role'], args['Bio'], args['Start Date'], id)
-        cursor.execute(query, values)
-        connection.commit()
 
-        close_db_connection(connection)
+@app.route('/project/<email>', methods=['POST'])
+def addProject(email): return createProject(email, request.get_json())
 
-        return {"message": "Portfolio Manager updated successfully"}
 
-    def delete(self, id):
-        connection = create_db_connection()
-        cursor = connection.cursor()
+@app.route('/project/<email>', methods=['PUT'])
+def assignProject(email): return asignProjectToManager(email, request.get_json())
 
-        query = "DELETE FROM portfolio_managers WHERE Id = %s"
-        cursor.execute(query, (id,))
-        connection.commit()
 
-        close_db_connection(connection)
+@app.route('/project/<email>', methods=['PATCH'])
+def updateProject(email): return updateProject(email, request.get_json())
 
-        return {"message": "Portfolio Manager deleted successfully"}
 
-class ProjectResource(Resource):
-    def get(self, id=None):
-        connection = create_db_connection()
-        cursor = connection.cursor()
+@app.route('/project/<email>', methods=['GET'])
+def allProjects(email): return displayProjects(email)
 
-        if id is None:
-            query = "SELECT * FROM projects"
-            cursor.execute(query)
-            projects = cursor.fetchall()
-            return jsonify(projects)
-        else:
-            query = "SELECT * FROM projects WHERE Id = %s"
-            cursor.execute(query, (id,))
-            project = cursor.fetchone()
-            if project:
-                return jsonify(project)
-            else:
-                return {"message": "Project not found"}, 404
 
-        close_db_connection(connection)
+@app.route('/project/<email>/<projectid>', methods=['GET'])
+def getProject(email, projectid): return display_single_project(email, projectid)
 
-    def post(self):
-        data = request.get_json()
-        parser = reqparse.RequestParser()
-        parser.add_argument('ProjectName', type=str, required=True)
-        parser.add_argument('Status', type=str, required=True)
-        parser.add_argument('StartDate', type=str, required=True)
-        parser.add_argument('EndDate', type=str, required=True)
-        parser.add_argument('PortfolioManagerId', type=int, required=True)
-        args = parser.parse_args()
 
-        connection = create_db_connection()
-        cursor = connection.cursor()
+@app.route('/project/<email>/<projectid>', methods=['DELETE'])
+def deleteProject(email, projectid): return deleteProject(email, projectid)
 
-        query = "INSERT INTO projects (ProjectName, Status, StartDate, EndDate, PortfolioManagerId) VALUES (%s, %s, %s, %s, %s)"
-        values = (args['ProjectName'], args['Status'], args['StartDate'], args['EndDate'], args['PortfolioManagerId'])
-        cursor.execute(query, values)
-        connection.commit()
 
-        close_db_connection(connection)
+@app.route('/res/<email>', methods=['POST'])
+def createResource(email): return addResource(email, request.get_json())
 
-        return {"message": "Project created successfully"}, 201
 
-    def put(self, id):
-        data = request.get_json()
-        parser = reqparse.RequestParser()
-        parser.add_argument('ProjectName', type=str, required=True)
-        parser.add_argument('Status', type=str, required=True)
-        parser.add_argument('StartDate', type=str, required=True)
-        parser.add_argument('EndDate', type=str, required=True)
-        parser.add_argument('PortfolioManagerId', type=int, required=True)
-        args = parser.parse_args()
+@app.route('/res/<email>/<resid>', methods=['DELETE']) 
+def removeResource(email, resid): return deleteResource(email, resid)
 
-        connection = create_db_connection()
-        cursor = connection.cursor()
 
-        query = "UPDATE projects SET ProjectName = %s, Status = %s, StartDate = %s, EndDate = %s, PortfolioManagerId = %s WHERE Id = %s"
-        values = (args['ProjectName'], args['Status'], args['StartDate'], args['EndDate'], args['PortfolioManagerId'], id)
-        cursor.execute(query, values)
-        connection.commit()
+@app.route('/res/<email>/<resid>', methods=['PATCH'])
+def updateResource(email, resid): return updateResource(email, resid, request.get_json())
 
-        close_db_connection(connection)
 
-        return {"message": "Project updated successfully"}
+@app.route('/res/<email>', methods=['GET'])
+def getAllResources(email): return showResources(email)
 
-    def delete(self, id):
-        connection = create_db_connection()
-        cursor = connection.cursor()
 
-        query = "DELETE FROM projects WHERE Id = %s"
-        cursor.execute(query, (id,))
-        connection.commit()
+@app.route('/res/<email>/<task>/<resId>', methods=['PATCH'])
+def assignResources(email, task, resId): return asignResourceToTask(email, task, resId)
 
-        close_db_connection(connection)
 
-        return {"message": "Project deleted successfully"}
+@app.route('/res/<email>/<resid>')
+def getSingleResource(email, resid): return show_single_resource(email, resid)
 
-# Define API endpoints
-api.add_resource(PortfolioManagerResource, '/api/portfolio-managers', '/api/portfolio-managers/<int:id>')
-api.add_resource(ProjectResource, '/api/projects', '/api/projects/<int:id>')
+
+@app.route('/task/<email>/<projectid>/<task>', methods=['POST'])
+def create_task(email, projectid, task): return createTask(email, projectid, task)
+
+
+@app.route('/task/<email>/<projectid>/<task>', methods=['DELETE'])
+def delete_task(email, projectid, task): return deleteTask(email, projectid, task)
+
+
+@app.route('/task/<email>/<projectid>/<task>', methods=['PATCH'])
+def update_task(email, projectid, task): return updateTask(email, projectid, task)
+
+
+@app.route('/task/<email>/<projectid>', methods=['GET'])
+def show_all_tasks(email, projectid): return showTasks(email, projectid)
+
+
+@app.route('/task/<email>/<projectid>/<taskid>')
+def show_one_task(email, projectid, taskid): return show_single_task(email, projectid, taskid)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
